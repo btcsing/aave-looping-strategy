@@ -5,3 +5,6 @@
 	path = lib/aave-v3-origin
 	url = https://github.com/aave-dao/aave-v3-origin
 	branch = v3.2.0
+[submodule "lib/yieldnest-vault"]
+	path = lib/yieldnest-vault
+	url = https://github.com/yieldnest/yieldnest-vault
