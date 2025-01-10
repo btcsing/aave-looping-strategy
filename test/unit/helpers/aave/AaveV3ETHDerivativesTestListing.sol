@@ -7,6 +7,7 @@ import {MockAggregator} from "lib/aave-v3-origin/src/contracts/mocks/oracle/CLAg
 import {ACLManager} from "lib/aave-v3-origin/src/contracts/protocol/configuration/ACLManager.sol";
 import {MarketReport} from "lib/aave-v3-origin/src/deployments/interfaces/IMarketReportTypes.sol";
 
+import {MainnetContracts} from "script/Contracts.sol";
 import {console} from "forge-std/console.sol";
 
 /**
@@ -42,13 +43,13 @@ contract AaveV3ETHDerivativesTestListing is AaveV3Payload {
         WETH_ADDRESS = weth9;
         WETH_MOCK_PRICE_FEED = address(new MockAggregator(3364 ether));
 
-        WEETH_ADDRESS = address(new TestnetERC20("WEETH", "WEETH", 18, erc20Owner));
+        WEETH_ADDRESS = MainnetContracts.WEETH;
         WEETH_MOCK_PRICE_FEED = address(new MockAggregator(3562 ether));
 
-        WSTETH_ADDRESS = address(new TestnetERC20("WSTETH", "WSTETH", 18, erc20Owner));
+        WSTETH_ADDRESS = MainnetContracts.WSTETH;
         WSTETH_MOCK_PRICE_FEED = address(new MockAggregator(4000 ether));
 
-        CBETH_ADDRESS = address(new TestnetERC20("CBETH", "CBETH", 18, erc20Owner));
+        CBETH_ADDRESS = MainnetContracts.CBETH;
         CBETH_MOCK_PRICE_FEED = address(new MockAggregator(3664 ether));
 
         ATOKEN_IMPLEMENTATION = report.aToken;

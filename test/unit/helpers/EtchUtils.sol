@@ -6,11 +6,17 @@ import {Test} from "lib/forge-std/src/Test.sol";
 import {WETH9} from "lib/yieldnest-vault/test/unit/mocks/MockWETH.sol";
 import {MainnetContracts} from "script/Contracts.sol";
 import {MockSTETH} from "lib/yieldnest-vault/test/unit/mocks/MockST_ETH.sol";
+import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {MockERC20} from "lib/forge-std/src/mocks/MockERC20.sol";
+import {console} from "lib/forge-std/src/console.sol";
 
 contract EtchUtils is Test {
     function mockAll() public {
         mockWETH9();
         mockStETH();
+        mockWEETH();
+        mockWSTETH();
+        mockCBETH();
         // mockProvider();
     }
 
@@ -24,6 +30,24 @@ contract EtchUtils is Test {
         MockSTETH steth = new MockSTETH();
         bytes memory code = address(steth).code;
         vm.etch(MainnetContracts.STETH, code);
+    }
+
+    function mockWEETH() public {
+        MockERC20 mockERC20 = new MockERC20();
+        vm.etch(MainnetContracts.WEETH, address(mockERC20).code);
+        MockERC20(MainnetContracts.WEETH).initialize("WEETH", "WEETH", 18);
+    }
+
+    function mockWSTETH() public {
+        MockERC20 mockERC20 = new MockERC20();
+        vm.etch(MainnetContracts.WSTETH, address(mockERC20).code);
+        MockERC20(MainnetContracts.WSTETH).initialize("WSTETH", "WSTETH", 18);
+    }
+
+    function mockCBETH() public {
+        MockERC20 mockERC20 = new MockERC20();
+        vm.etch(MainnetContracts.CBETH, address(mockERC20).code);
+        MockERC20(MainnetContracts.CBETH).initialize("CBETH", "CBETH", 18);
     }
 
     // function mockProvider() public {

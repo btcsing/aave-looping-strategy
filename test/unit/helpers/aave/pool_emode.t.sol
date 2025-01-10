@@ -6,21 +6,29 @@ import {SetupAAVEPool} from "./SetupAAVEPool.sol";
 import {IPool} from "lib/aave-v3-origin/src/contracts/interfaces/IPool.sol";
 import {console} from "forge-std/console.sol";
 import {IERC20} from "lib/aave-v3-origin/src/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
+import {EtchUtils} from "../EtchUtils.sol";
 
-contract TestAAVEPoolEMode is SetupAAVEPool {
+contract TestAAVEPoolEMode is SetupAAVEPool, EtchUtils {
     IPool pool;
 
     function setUp() public {
-        // SetupAAVEPool setupAAVEPool = new SetupAAVEPool();
-        // setupAAVEPool.deploy();
-        // pool = setupAAVEPool.getPool();
+        console.log("mocking");
+        mockAll();
+        console.log("mocked");
         deploy();
+        console.log("deployed");
         pool = getPool();
         // mimic data of 2025-01-08
         _supplyToPool(tokenListNew.weth, bob, 62_150 ether);
+        console.log("supply weth");
         _supplyToPool(tokenListNew.wstETH, bob, 4_640 ether);
+        console.log("supply wstETH");
         _supplyToPool(tokenListNew.weETH, bob, 50_050 ether);
+        console.log("supply weETH");
         _supplyToPool(tokenListNew.cbETH, bob, 2_820 ether);
+        console.log("supply cbETH");
+
+        console.log("suuply ready3");
     }
 
     function _supplyToPool(address erc20, address user, uint256 amount) internal {

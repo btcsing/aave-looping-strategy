@@ -13,6 +13,7 @@ import {
 } from "lib/aave-v3-origin/src/contracts/extensions/v3-config-engine/AaveV3ConfigEngine.sol";
 import {MarketReportUtils} from "lib/aave-v3-origin/src/deployments/contracts/utilities/MarketReportUtils.sol";
 
+import {MainnetContracts} from "script/Contracts.sol";
 import {console} from "forge-std/console.sol";
 
 contract TestnetProceduresETH is TestnetProcedures {
@@ -66,7 +67,9 @@ contract TestnetProceduresETH is TestnetProcedures {
             hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
         );
 
+        console.log("deploying");
         (report, tokenListNew) = deployAaveV3TestnetAssetsNew(poolAdmin, roles, config, flags, deployedContracts);
+        console.log("deployed");
 
         contracts = report.toContractsReport();
 
@@ -75,6 +78,7 @@ contract TestnetProceduresETH is TestnetProcedures {
         vm.label(tokenListNew.weth, "WETH");
         vm.label(tokenListNew.weETH, "weETH");
         vm.label(tokenListNew.wstETH, "wstETH");
+        vm.label(tokenListNew.cbETH, "cbETH");
 
         if (mintUserTokens) {
             // Perform setup of user positions
@@ -85,12 +89,10 @@ contract TestnetProceduresETH is TestnetProcedures {
             users[2] = carol;
 
             for (uint256 x; x < users.length; x++) {
-                vm.startPrank(poolAdmin);
                 deal(address(weth), users[x], amount);
                 deal(address(tokenListNew.wstETH), users[x], amount);
                 deal(address(tokenListNew.weETH), users[x], amount);
                 deal(address(tokenListNew.cbETH), users[x], amount);
-                vm.stopPrank();
 
                 vm.startPrank(users[x]);
                 weth.approve(report.poolProxy, UINT256_MAX);
@@ -111,27 +113,37 @@ contract TestnetProceduresETH is TestnetProcedures {
     ) internal returns (MarketReport memory, TokenListNew memory) {
         TokenListNew memory assetsList;
 
-        assetsList.weth = address(new WETH9());
+        assetsList.weth = MainnetContracts.WETH;
         config.wrappedNativeToken = assetsList.weth;
-
+        console.log("deploying deployAaveV3Testnet");
         MarketReport memory r = deployAaveV3Testnet(deployer, roles, config, flags, deployedContracts);
+        console.log("deployed deployAaveV3Testnet");
 
+        console.log("deploying AaveV3ETHDerivativesTestListing");
         AaveV3ETHDerivativesTestListing testnetListingPayload = new AaveV3ETHDerivativesTestListing(
             IAaveV3ConfigEngine(r.configEngine), roles.poolAdmin, assetsList.weth, r
         );
+        console.log("deployed AaveV3ETHDerivativesTestListing");
+
         // Add additional assets
         assetsList.weETH = testnetListingPayload.WEETH_ADDRESS();
         assetsList.wstETH = testnetListingPayload.WSTETH_ADDRESS();
         assetsList.cbETH = testnetListingPayload.CBETH_ADDRESS();
 
+        console.log("deploying newListingsCustom");
         testnetListingPayload.newListingsCustom();
+        console.log("deployed newListingsCustom");
+
+        console.log("assetsList.cbETH decimals", TestnetERC20(assetsList.cbETH).decimals());
 
         ACLManager manager = ACLManager(r.aclManager);
 
         vm.prank(roles.poolAdmin);
         manager.addPoolAdmin(address(testnetListingPayload));
 
+        console.log("deploying execute");
         testnetListingPayload.execute();
+        console.log("deployed execute");
 
         return (r, assetsList);
     }
