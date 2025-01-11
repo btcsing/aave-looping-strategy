@@ -9,14 +9,19 @@ import {MockSTETH} from "lib/yieldnest-vault/test/unit/mocks/MockST_ETH.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {MockERC20} from "lib/forge-std/src/mocks/MockERC20.sol";
 import {console} from "lib/forge-std/src/console.sol";
+import {SetupAAVEPool} from "./aave/SetupAAVEPool.sol";
 
 contract EtchUtils is Test {
+    SetupAAVEPool setupAAVE;
+
     function mockAll() public {
         mockWETH9();
         mockStETH();
         mockWEETH();
         mockWSTETH();
         mockCBETH();
+        // mock AAVE pool and set to var pool
+        mockAAVEPool();
         // mockProvider();
     }
 
@@ -48,6 +53,11 @@ contract EtchUtils is Test {
         MockERC20 mockERC20 = new MockERC20();
         vm.etch(MainnetContracts.CBETH, address(mockERC20).code);
         MockERC20(MainnetContracts.CBETH).initialize("CBETH", "CBETH", 18);
+    }
+
+    function mockAAVEPool() internal {
+        setupAAVE = new SetupAAVEPool();
+        setupAAVE.deploy();
     }
 
     // function mockProvider() public {

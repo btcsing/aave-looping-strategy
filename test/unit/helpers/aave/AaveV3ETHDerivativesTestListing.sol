@@ -41,16 +41,16 @@ contract AaveV3ETHDerivativesTestListing is AaveV3Payload {
     {
         // 2025-01-08 price, 1 WETH = 3364 USD, 1 WEETH = 3562 USD, 1 WSTETH = 4000 USD, 1 CBETH = 3664 USD
         WETH_ADDRESS = weth9;
-        WETH_MOCK_PRICE_FEED = address(new MockAggregator(3364 ether));
+        WETH_MOCK_PRICE_FEED = address(new MockAggregator(3364e8));
 
         WEETH_ADDRESS = MainnetContracts.WEETH;
-        WEETH_MOCK_PRICE_FEED = address(new MockAggregator(3562 ether));
+        WEETH_MOCK_PRICE_FEED = address(new MockAggregator(3562e8));
 
         WSTETH_ADDRESS = MainnetContracts.WSTETH;
-        WSTETH_MOCK_PRICE_FEED = address(new MockAggregator(4000 ether));
+        WSTETH_MOCK_PRICE_FEED = address(new MockAggregator(4000e8));
 
         CBETH_ADDRESS = MainnetContracts.CBETH;
-        CBETH_MOCK_PRICE_FEED = address(new MockAggregator(3664 ether));
+        CBETH_MOCK_PRICE_FEED = address(new MockAggregator(3664e8));
 
         ATOKEN_IMPLEMENTATION = report.aToken;
         VARIABLE_DEBT_TOKEN_IMPLEMENTATION = report.variableDebtToken;

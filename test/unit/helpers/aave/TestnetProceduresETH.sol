@@ -28,16 +28,20 @@ contract TestnetProceduresETH is TestnetProcedures {
 
     TokenListNew public tokenListNew;
 
-    function getPool() public view returns (IPool) {
-        return IPool(report.poolProxy);
+    function getPool() public view returns (address) {
+        return report.poolProxy;
+    }
+
+    function getPoolDataProvider() public view returns (address) {
+        return address(contracts.protocolDataProvider);
     }
 
     function initTestEnvironmentNew() public {
-        _initTestEnvironmentNew(true, false);
+        _initTestEnvironmentNew(false);
     }
 
     // mimic the deployAaveV3TestnetAssets function
-    function _initTestEnvironmentNew(bool mintUserTokens, bool l2) internal {
+    function _initTestEnvironmentNew(bool l2) internal {
         poolAdmin = makeAddr("POOL_ADMIN");
 
         alicePrivateKey = 0xA11CE;
@@ -67,9 +71,7 @@ contract TestnetProceduresETH is TestnetProcedures {
             hex"7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf3"
         );
 
-        console.log("deploying");
         (report, tokenListNew) = deployAaveV3TestnetAssetsNew(poolAdmin, roles, config, flags, deployedContracts);
-        console.log("deployed");
 
         contracts = report.toContractsReport();
 
@@ -79,29 +81,6 @@ contract TestnetProceduresETH is TestnetProcedures {
         vm.label(tokenListNew.weETH, "weETH");
         vm.label(tokenListNew.wstETH, "wstETH");
         vm.label(tokenListNew.cbETH, "cbETH");
-
-        if (mintUserTokens) {
-            // Perform setup of user positions
-            uint256 amount = 100_000 ether;
-            address[] memory users = new address[](3);
-            users[0] = alice;
-            users[1] = bob;
-            users[2] = carol;
-
-            for (uint256 x; x < users.length; x++) {
-                deal(address(weth), users[x], amount);
-                deal(address(tokenListNew.wstETH), users[x], amount);
-                deal(address(tokenListNew.weETH), users[x], amount);
-                deal(address(tokenListNew.cbETH), users[x], amount);
-
-                vm.startPrank(users[x]);
-                weth.approve(report.poolProxy, UINT256_MAX);
-                IERC20(tokenListNew.wstETH).approve(report.poolProxy, UINT256_MAX);
-                IERC20(tokenListNew.weETH).approve(report.poolProxy, UINT256_MAX);
-                IERC20(tokenListNew.cbETH).approve(report.poolProxy, UINT256_MAX);
-                vm.stopPrank();
-            }
-        }
     }
 
     function deployAaveV3TestnetAssetsNew(
@@ -115,35 +94,25 @@ contract TestnetProceduresETH is TestnetProcedures {
 
         assetsList.weth = MainnetContracts.WETH;
         config.wrappedNativeToken = assetsList.weth;
-        console.log("deploying deployAaveV3Testnet");
         MarketReport memory r = deployAaveV3Testnet(deployer, roles, config, flags, deployedContracts);
-        console.log("deployed deployAaveV3Testnet");
 
-        console.log("deploying AaveV3ETHDerivativesTestListing");
         AaveV3ETHDerivativesTestListing testnetListingPayload = new AaveV3ETHDerivativesTestListing(
             IAaveV3ConfigEngine(r.configEngine), roles.poolAdmin, assetsList.weth, r
         );
-        console.log("deployed AaveV3ETHDerivativesTestListing");
 
         // Add additional assets
         assetsList.weETH = testnetListingPayload.WEETH_ADDRESS();
         assetsList.wstETH = testnetListingPayload.WSTETH_ADDRESS();
         assetsList.cbETH = testnetListingPayload.CBETH_ADDRESS();
 
-        console.log("deploying newListingsCustom");
         testnetListingPayload.newListingsCustom();
-        console.log("deployed newListingsCustom");
-
-        console.log("assetsList.cbETH decimals", TestnetERC20(assetsList.cbETH).decimals());
 
         ACLManager manager = ACLManager(r.aclManager);
 
         vm.prank(roles.poolAdmin);
         manager.addPoolAdmin(address(testnetListingPayload));
 
-        console.log("deploying execute");
         testnetListingPayload.execute();
-        console.log("deployed execute");
 
         return (r, assetsList);
     }
