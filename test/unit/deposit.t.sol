@@ -6,10 +6,10 @@ import {IVault} from "lib/yieldnest-vault/src/BaseVault.sol";
 import {IERC20} from "lib/yieldnest-vault/src/Common.sol";
 import {MockERC20} from "lib/yieldnest-vault/test/unit/mocks/MockERC20.sol";
 
-import {SetupAAVELoopingStrategy} from "test/unit/helpers/SetupAAVELoopingStrategy.sol";
+import {SetupAaveLoopingStrategy} from "test/unit/helpers/SetupAaveLoopingStrategy.sol";
 import {console} from "lib/forge-std/src/console.sol";
 
-contract AAVELoopingStrategyDepositUnitTest is SetupAAVELoopingStrategy {
+contract DepositUnitTest is SetupAaveLoopingStrategy {
     function setUp() public {
         deploy();
 
@@ -23,8 +23,8 @@ contract AAVELoopingStrategyDepositUnitTest is SetupAAVELoopingStrategy {
         weth.approve(address(vault), type(uint256).max);
     }
 
-    function test_AVELoopingStrategy_deposit_success() public {
-        uint256 depositAmount = 2 ether;
+    function test_AaveLoopingStrategy_deposit_success() public {
+        uint256 depositAmount = 1 ether;
         depositAmount = bound(depositAmount, 10, 100_000 ether);
         vm.prank(alice);
         uint256 sharesMinted = vault.deposit(depositAmount, alice);

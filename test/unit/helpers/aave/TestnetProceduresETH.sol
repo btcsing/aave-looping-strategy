@@ -36,6 +36,10 @@ contract TestnetProceduresETH is TestnetProcedures {
         return address(contracts.protocolDataProvider);
     }
 
+    function getOracle() public view returns (address) {
+        return address(contracts.aaveOracle);
+    }
+
     function initTestEnvironmentNew() public {
         _initTestEnvironmentNew(false);
     }

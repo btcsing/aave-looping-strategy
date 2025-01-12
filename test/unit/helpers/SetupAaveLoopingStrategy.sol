@@ -15,15 +15,15 @@ import {MockRateProvider} from "test/unit/mocks/MockRateProvider.sol";
 // local imports
 import {MainnetActors} from "script/Actors.sol";
 import {MainnetContracts as MC} from "script/Contracts.sol";
-import {AAVELoopingStrategy} from "src/AAVELoopingStrategy.sol";
+import {AaveLoopingStrategy} from "src/AaveLoopingStrategy.sol";
 import {EtchUtils} from "test/unit/helpers/EtchUtils.sol";
 import {ETHRateProvider} from "src/module/ETHRateProvider.sol";
 import {SetupAAVEPool} from "test/unit/helpers/aave/SetupAAVEPool.sol";
 // import {IPool} from "lib/aave-v3-origin/src/contracts/interfaces/IPool.sol";
 // import {IPoolDataProvider} from "lib/aave-v3-origin/src/contracts/interfaces/IPoolDataProvider.sol";
 
-contract SetupAAVELoopingStrategy is Test, EtchUtils, MainnetActors {
-    AAVELoopingStrategy public vault;
+contract SetupAaveLoopingStrategy is Test, EtchUtils, MainnetActors {
+    AaveLoopingStrategy public vault;
     // MockRateProvider public provider;
     ETHRateProvider public provider;
 
@@ -37,8 +37,9 @@ contract SetupAAVELoopingStrategy is Test, EtchUtils, MainnetActors {
     address public chad = address(0x0cad);
 
     // AAVE pool
-    address public pool;
-    address public poolDataProvider;
+    address public aavePool;
+    address public aavePoolDataProvider;
+    address public aaveOracle;
     uint256 public constant INITIAL_BALANCE = 100_000 ether;
 
     function deploy() public {
@@ -47,26 +48,27 @@ contract SetupAAVELoopingStrategy is Test, EtchUtils, MainnetActors {
         string memory symbol = "ynAaveLooping";
 
         mockAll();
-        pool = setupAAVE.getPool();
-        poolDataProvider = setupAAVE.getPoolDataProvider();
+        aavePool = setupAAVE.getPool();
+        aavePoolDataProvider = setupAAVE.getPoolDataProvider();
+        aaveOracle = setupAAVE.getOracle();
         provider = new ETHRateProvider();
-        AAVELoopingStrategy implementation = new AAVELoopingStrategy();
+        AaveLoopingStrategy implementation = new AaveLoopingStrategy();
         // Deploy the proxy
         bytes memory initData =
             abi.encodeWithSelector(Vault.initialize.selector, ADMIN, name, symbol, 18, 0, true, true);
 
         TUProxy vaultProxy = new TUProxy(address(implementation), ADMIN, initData);
 
-        vault = AAVELoopingStrategy(payable(address(vaultProxy)));
+        vault = AaveLoopingStrategy(payable(address(vaultProxy)));
         weth = WETH9(payable(MC.WETH));
         weeth = IERC20(MC.WEETH);
         wsteth = IERC20(MC.WSTETH);
         cbeth = IERC20(MC.CBETH);
 
-        configureAAVELoopingStrategy();
+        configureAaveLoopingStrategy();
     }
 
-    function configureAAVELoopingStrategy() internal {
+    function configureAaveLoopingStrategy() internal {
         vm.startPrank(ADMIN);
 
         vault.grantRole(vault.PROCESSOR_ROLE(), PROCESSOR);
@@ -83,8 +85,9 @@ contract SetupAAVELoopingStrategy is Test, EtchUtils, MainnetActors {
         vault.setProvider(address(provider));
 
         // set AAVE pool
-        vault.setAAVE(pool, poolDataProvider);
-        vault.enableEMode(setupAAVE.EModeCategory());
+        vault.setAave(aavePool, aavePoolDataProvider, aaveOracle);
+        vault.setEMode(setupAAVE.EModeCategory());
+        vault.setFlashLoanEnabled(true);
 
         // set has allocator
         // vault.setHasAllocator(true);
