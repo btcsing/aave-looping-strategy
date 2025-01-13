@@ -36,9 +36,7 @@ contract AaveV3ETHDerivativesTestListing is AaveV3Payload {
 
     ACLManager immutable ACL_MANAGER;
 
-    constructor(IEngine customEngine, address erc20Owner, address weth9, MarketReport memory report)
-        AaveV3Payload(customEngine)
-    {
+    constructor(IEngine customEngine, address weth9, MarketReport memory report) AaveV3Payload(customEngine) {
         // 2025-01-08 price, 1 WETH = 3364 USD, 1 WEETH = 3562 USD, 1 WSTETH = 4000 USD, 1 CBETH = 3664 USD
         WETH_ADDRESS = weth9;
         WETH_MOCK_PRICE_FEED = address(new MockAggregator(3364e8));

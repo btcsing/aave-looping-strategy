@@ -108,6 +108,7 @@ contract TestAAVEPoolEMode is SetupAAVEPool, EtchUtils {
         uint256 ethPrice = contracts.aaveOracle.getAssetPrice(tokenListNew.weth);
         uint256 supplyAmountInBaseCurrency = supplyAmount / 1 ether * ethPrice;
 
+        assertEq(baseCurrencyUnit, 1e8);
         assertEq(totalCollateralBase, supplyAmountInBaseCurrency);
         assertEq(totalDebtBase, 0);
         assertEq(availableBorrowsBase, availableBorrowsInBaseCurrency);
@@ -123,14 +124,7 @@ contract TestAAVEPoolEMode is SetupAAVEPool, EtchUtils {
         vm.prank(alice);
         pool.setUserEMode(EModeCategory);
 
-        (
-            uint256 totalCollateralBase,
-            uint256 totalDebtBase,
-            uint256 availableBorrowsBase,
-            uint256 currentLiquidationThreshold,
-            uint256 ltv,
-            uint256 healthFactor
-        ) = pool.getUserAccountData(alice);
+        (,, uint256 availableBorrowsBase,,,) = pool.getUserAccountData(alice);
 
         uint256 debtPrice = contracts.aaveOracle.getAssetPrice(tokenListNew.weth);
         uint256 maxBorrowAmount = (availableBorrowsBase * 1e8 / debtPrice) * 1 ether / 1e8;

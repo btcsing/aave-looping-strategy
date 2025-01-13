@@ -80,14 +80,13 @@ contract SetupAaveLoopingStrategy is Test, EtchUtils, MainnetActors {
         vault.grantRole(vault.UNPAUSER_ROLE(), UNPAUSER);
 
         vault.grantRole(vault.AAVE_DEPENDENCY_MANAGER_ROLE(), ADMIN);
-
+        vault.grantRole(vault.DEPOSIT_MANAGER_ROLE(), ADMIN);
         // set provider
         vault.setProvider(address(provider));
 
         // set AAVE pool
         vault.setAave(aavePool, aavePoolDataProvider, aaveOracle);
         vault.setEMode(setupAAVE.EModeCategory());
-        vault.setFlashLoanEnabled(true);
 
         // set has allocator
         // vault.setHasAllocator(true);

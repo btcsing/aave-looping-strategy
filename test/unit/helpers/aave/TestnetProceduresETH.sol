@@ -100,9 +100,8 @@ contract TestnetProceduresETH is TestnetProcedures {
         config.wrappedNativeToken = assetsList.weth;
         MarketReport memory r = deployAaveV3Testnet(deployer, roles, config, flags, deployedContracts);
 
-        AaveV3ETHDerivativesTestListing testnetListingPayload = new AaveV3ETHDerivativesTestListing(
-            IAaveV3ConfigEngine(r.configEngine), roles.poolAdmin, assetsList.weth, r
-        );
+        AaveV3ETHDerivativesTestListing testnetListingPayload =
+            new AaveV3ETHDerivativesTestListing(IAaveV3ConfigEngine(r.configEngine), assetsList.weth, r);
 
         // Add additional assets
         assetsList.weETH = testnetListingPayload.WEETH_ADDRESS();
