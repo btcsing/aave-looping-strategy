@@ -8,7 +8,6 @@ import {ACLManager} from "lib/aave-v3-origin/src/contracts/protocol/configuratio
 import {MarketReport} from "lib/aave-v3-origin/src/deployments/interfaces/IMarketReportTypes.sol";
 
 import {MainnetContracts} from "script/Contracts.sol";
-import {console} from "forge-std/console.sol";
 
 /**
  * @dev Smart contract for token listing, for testing purposes

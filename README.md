@@ -9,10 +9,12 @@
 ## Intro
 
 - this repo enable Aave **EMode** for higher LTV, see [Aave EMode](https://aave.com/docs/developers/smart-contracts/pool-configurator#only-risk-or-pool-admins-methods-setemodecategory)
-    - we only care ETH and ETH derivatives tokens, so we enable EMode here
+    - we only care ETH and ETH derivatives tokens, so we can enable EMode here
     - like in mainnet, EMode for ETH correlated tokens category can get 93% LTV (very higher!) from around 80% 
 
 ## Looping Strategy
+
+### deposit method
 
 this repo provide 2 looping strategy, loopingLoan() and flashLoan()
 
@@ -28,6 +30,14 @@ this repo provide 2 looping strategy, loopingLoan() and flashLoan()
 
 we can see flashLoan() can save huge gas (~97%) compared to loopingLoan(), but it need to pay 0.05% fee for flash loan
 
+enable the flash loan feature
+```
+setFlashLoanEnabled(true);
+```
+
+### redeem & withdraw method
+
+- because Aave has repayWithATokens() feature, so we can use it to repay debt and avoid flash loan again
 
 ## NOTE
 

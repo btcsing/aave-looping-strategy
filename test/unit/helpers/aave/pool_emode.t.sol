@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import {Test} from "forge-std/Test.sol";
 import {SetupAAVEPool} from "./SetupAAVEPool.sol";
 import {IPool} from "lib/aave-v3-origin/src/contracts/interfaces/IPool.sol";
-import {console} from "forge-std/console.sol";
 import {IERC20} from "lib/aave-v3-origin/src/contracts/dependencies/openzeppelin/contracts/IERC20.sol";
 import {IAToken} from "lib/aave-v3-origin/src/contracts/interfaces/IAToken.sol";
 import {PercentageMath} from "lib/aave-v3-origin/src/contracts/protocol/libraries/math/PercentageMath.sol";

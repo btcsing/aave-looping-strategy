@@ -14,7 +14,6 @@ import {
 import {MarketReportUtils} from "lib/aave-v3-origin/src/deployments/contracts/utilities/MarketReportUtils.sol";
 
 import {MainnetContracts} from "script/Contracts.sol";
-import {console} from "forge-std/console.sol";
 
 contract TestnetProceduresETH is TestnetProcedures {
     using MarketReportUtils for MarketReport;

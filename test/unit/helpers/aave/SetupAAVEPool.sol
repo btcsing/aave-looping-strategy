@@ -27,7 +27,7 @@ contract SetupAAVEPool is TestnetProceduresETH {
         contracts.poolConfiguratorProxy.setAssetBorrowableInEMode(tokenListNew.cbETH, 1, true);
         // mock pool supply and borrow
         mockPoolSupplyAndBorrow();
-        emit log_string("deploy AAVE pool weth, wstETH, weETH, cbETH emode SUCCESS!");
+        // emit log_string("deploy AAVE pool weth, wstETH, weETH, cbETH emode SUCCESS!");
         vm.stopPrank();
     }
 

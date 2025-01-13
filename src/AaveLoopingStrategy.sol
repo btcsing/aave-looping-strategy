@@ -7,7 +7,6 @@ import {IPool} from "lib/aave-v3-origin/src/contracts/interfaces/IPool.sol";
 import {IPoolDataProvider} from "lib/aave-v3-origin/src/contracts/interfaces/IPoolDataProvider.sol";
 import {IAaveOracle} from "lib/aave-v3-origin/src/contracts/interfaces/IAaveOracle.sol";
 import {DataTypes} from "lib/aave-v3-origin/src/contracts/protocol/libraries/types/DataTypes.sol";
-import {console} from "lib/forge-std/src/console.sol";
 
 /**
  * @title AaveLoopingStrategy
@@ -66,6 +65,8 @@ contract AaveLoopingStrategy is Vault {
 
     /// @notice error when deposit value is too small
     error DepositTooSmall();
+    /// @notice error when only aave pool can set flash loan mode
+    error OnlyAavePool();
 
     /// @notice Emitted when an asset is withdrawn
     event WithdrawAsset(
@@ -172,7 +173,7 @@ contract AaveLoopingStrategy is Vault {
         StrategyStorage storage strategyStorage = _getStrategyStorage();
         if (strategyStorage.syncDeposit) {
             if (strategyStorage.flashLoanEnabled) {
-                setFlashLoanMode(false);
+                _setFlashLoanMode(false);
                 flashLoan(strategyStorage.aavePool, asset_, assets);
             } else {
                 loopingLoan(strategyStorage.aavePool, strategyStorage.aaveOracle, asset_, assets);
@@ -195,7 +196,7 @@ contract AaveLoopingStrategy is Vault {
         // A: assets, F: flashLoan assets, ltv: loan to value (0.9), 0.5%: flash loan fee
         // 0.9 * (A + F) >= F * 1.0005
         // F <= A * 0.9 / (1.0005 - 0.9) -> F <= A * 0.9 / 0.1005  = A * 8.955
-        uint256 targetLtv = ltv - 200;
+        uint256 targetLtv = ltv - LTV_SHIFT;
         uint256 flashLoanAmount = assets.mulDiv(targetLtv, 1e4 + FLASH_LOAN_FEE - targetLtv, Math.Rounding.Floor);
         pool.flashLoanSimple(address(this), asset_, flashLoanAmount, "", REFERAL_CODE);
     }
@@ -210,11 +211,13 @@ contract AaveLoopingStrategy is Vault {
         StrategyStorage storage strategyStorage = _getStrategyStorage();
 
         AavePair memory pair = strategyStorage.aavePairs[asset_];
+        uint256 aToken = pair.aToken.balanceOf(address(this));
+        uint256 aTokenAfterShares = aToken.mulDiv(shares, totalSupply(), Math.Rounding.Floor);
         uint256 debt = pair.varDebtToken.balanceOf(address(this));
         uint256 debtAfterShares = debt.mulDiv(shares, totalSupply(), Math.Rounding.Floor);
         // true for withdraw
-        setFlashLoanMode(true);
-        pool.flashLoanSimple(address(this), asset_, debtAfterShares, "", REFERAL_CODE);
+        _setFlashLoanMode(true);
+        pool.flashLoanSimple(address(this), asset_, debtAfterShares, abi.encode(aTokenAfterShares), REFERAL_CODE);
     }
 
     /// @notice Looping loan for the strategy
@@ -263,7 +266,6 @@ contract AaveLoopingStrategy is Vault {
         returns (uint256 shares)
     {
         shares = _withdrawAsset(asset(), assets, receiver, owner);
-        console.log(" withdraw finish");
     }
 
     /**
@@ -299,17 +301,11 @@ contract AaveLoopingStrategy is Vault {
             revert Paused();
         }
         uint256 maxAssets = maxWithdrawAsset(asset_, owner);
-        console.log("maxAssets: ", maxAssets);
-        console.log("assets: ", assets);
         if (assets > maxAssets) {
-            console.log("in _withdrawAsset ExceededMaxWithdraw");
             revert ExceededMaxWithdraw(owner, assets, maxAssets);
         }
-        console.log("after ExceededMaxWithdraw");
         (shares,) = _convertToShares(asset_, assets, Math.Rounding.Ceil);
-        console.log("after convertToShares");
         _withdrawAsset(asset_, _msgSender(), receiver, owner, assets, shares);
-        console.log("after _withdrawAsset");
     }
 
     /**
@@ -344,9 +340,16 @@ contract AaveLoopingStrategy is Vault {
         StrategyStorage storage strategyStorage = _getStrategyStorage();
 
         if (strategyStorage.syncWithdraw) {
-            require(strategyStorage.flashLoanEnabled, "flashLoan not enabled");
-            setFlashLoanMode(false);
-            flashLoanWithdraw(strategyStorage.aavePool, asset_, shares);
+            AavePair memory pair = strategyStorage.aavePairs[asset_];
+            uint256 aToken = pair.aToken.balanceOf(address(this));
+            // NOTE: subtract 1 wei to avoid rounding issue
+            uint256 aTokenAfterShares = aToken.mulDiv(shares, totalSupply(), Math.Rounding.Floor) - 1;
+            uint256 debt = pair.varDebtToken.balanceOf(address(this));
+            uint256 debtAfterShares = debt.mulDiv(shares, totalSupply(), Math.Rounding.Floor);
+
+            strategyStorage.aavePool.repayWithATokens(asset_, debtAfterShares, INTEREST_RATE_MODE);
+            assets = aTokenAfterShares - debtAfterShares;
+            strategyStorage.aavePool.withdraw(asset_, assets, address(this));
         }
 
         // NOTE: burn shares before withdrawing the assets
@@ -389,7 +392,6 @@ contract AaveLoopingStrategy is Vault {
         uint256 availableAssets = _availableAssets(asset_);
 
         maxAssets = previewRedeemAsset(asset_, balanceOf(owner));
-
         maxAssets = availableAssets < maxAssets ? availableAssets : maxAssets;
     }
 
@@ -412,6 +414,112 @@ contract AaveLoopingStrategy is Vault {
     }
 
     /**
+     * @notice Redeems a given amount of shares and transfers the equivalent amount of assets to the receiver.
+     * @param shares The amount of shares to redeem.
+     * @param receiver The address of the receiver.
+     * @param owner The address of the owner.
+     * @return assets The equivalent amount of assets.
+     */
+    function redeem(uint256 shares, address receiver, address owner)
+        public
+        virtual
+        override
+        nonReentrant
+        returns (uint256 assets)
+    {
+        assets = _redeemAsset(asset(), shares, receiver, owner);
+    }
+
+    /**
+     * @notice Redeems shares and transfers equivalent assets to the receiver.
+     * @param asset_ The address of the asset.
+     * @param shares The amount of shares to redeem.
+     * @param receiver The address of the receiver.
+     * @param owner The address of the owner.
+     * @return assets The equivalent amount of assets.
+     */
+    function redeemAsset(address asset_, uint256 shares, address receiver, address owner)
+        public
+        virtual
+        nonReentrant
+        returns (uint256 assets)
+    {
+        assets = _redeemAsset(asset_, shares, receiver, owner);
+    }
+
+    /**
+     * @notice Internal function for redeems shares and transfers equivalent assets to the receiver.
+     * @param asset_ The address of the asset.
+     * @param shares The amount of shares to redeem.
+     * @param receiver The address of the receiver.
+     * @param owner The address of the owner.
+     * @return assets The equivalent amount of assets.
+     */
+    function _redeemAsset(address asset_, uint256 shares, address receiver, address owner)
+        internal
+        returns (uint256 assets)
+    {
+        if (paused()) {
+            revert Paused();
+        }
+        uint256 maxShares = maxRedeemAsset(asset_, owner);
+        if (shares > maxShares) {
+            revert ExceededMaxRedeem(owner, shares, maxShares);
+        }
+        assets = previewRedeemAsset(asset_, shares);
+        _withdrawAsset(asset_, _msgSender(), receiver, owner, assets, shares);
+    }
+
+    /**
+     * @notice Returns the maximum amount of shares that can be redeemed by a given owner.
+     * @param owner The address of the owner.
+     * @return maxShares The maximum amount of shares.
+     */
+    function maxRedeem(address owner) public view override returns (uint256 maxShares) {
+        maxShares = _maxRedeemAsset(asset(), owner);
+    }
+
+    /**
+     * @notice Returns the maximum amount of shares that can be redeemed by a given owner.
+     * @param asset_ The address of the asset.
+     * @param owner The address of the owner.
+     * @return maxShares The maximum amount of shares.
+     */
+    function maxRedeemAsset(address asset_, address owner) public view returns (uint256 maxShares) {
+        maxShares = _maxRedeemAsset(asset_, owner);
+    }
+
+    /**
+     * @notice Internal function to get the maximum amount of shares that can be redeemed by a given owner.
+     * @param asset_ The address of the asset.
+     * @param owner The address of the owner.
+     * @return maxShares The maximum amount of shares.
+     */
+    function _maxRedeemAsset(address asset_, address owner) internal view virtual returns (uint256 maxShares) {
+        if (paused() || !_getAssetStorage().assets[asset_].active) {
+            return 0;
+        }
+
+        uint256 availableAssets = _availableAssets(asset_);
+
+        maxShares = balanceOf(owner);
+
+        maxShares = availableAssets < previewRedeemAsset(asset_, maxShares)
+            ? previewWithdrawAsset(asset_, availableAssets)
+            : maxShares;
+    }
+
+    /**
+     * @notice Previews the amount of shares that would be received for a given amount of assets.
+     * @param asset_ The address of the asset.
+     * @param assets The amount of assets to deposit.
+     * @return shares The equivalent amount of shares.
+     */
+    function previewWithdrawAsset(address asset_, uint256 assets) public view virtual returns (uint256 shares) {
+        (shares,) = _convertToShares(asset_, assets, Math.Rounding.Ceil);
+    }
+
+    /**
      * @notice Previews the amount of assets that would be received for a given amount of shares.
      * @param asset_ The address of the asset.
      * @param shares The amount of shares to redeem.
@@ -419,11 +527,6 @@ contract AaveLoopingStrategy is Vault {
      */
     function previewRedeemAsset(address asset_, uint256 shares) public view virtual returns (uint256 assets) {
         (assets,) = _convertToAssets(asset_, shares, Math.Rounding.Floor);
-        // assets = assets - _feeOnTotal(assets);
-        StrategyStorage storage strategyStorage = _getStrategyStorage();
-        AavePair memory pair = strategyStorage.aavePairs[asset_];
-        uint256 debtBalance = pair.varDebtToken.balanceOf(address(this));
-        assets = assets - debtBalance.mulDiv(FLASH_LOAN_FEE, 1e4, Math.Rounding.Floor);
     }
 
     /**
@@ -521,7 +624,7 @@ contract AaveLoopingStrategy is Vault {
 
     /// @notice Get the flash loan mode from transient storage
     /// @return mode The flash loan mode (false for deposit, true for withdraw)
-    function getFlashLoanMode() internal view returns (bool mode) {
+    function _getFlashLoanMode() internal view returns (bool mode) {
         assembly {
             mode := tload(FLASHLOAN_MODE_SLOT)
         }
@@ -529,7 +632,7 @@ contract AaveLoopingStrategy is Vault {
 
     /// @notice Set the flash loan mode in transient storage
     /// @param mode The flash loan mode to set (false for deposit, true for withdraw)
-    function setFlashLoanMode(bool mode) internal {
+    function _setFlashLoanMode(bool mode) internal {
         assembly {
             tstore(FLASHLOAN_MODE_SLOT, mode)
         }
@@ -539,27 +642,24 @@ contract AaveLoopingStrategy is Vault {
     /// @param asset The address of the asset
     /// @param amount The amount of assets to flash loan
     /// @param premium The flash loan fee
+    /// @param params The flash loan params
     function executeOperation(
         address asset,
         uint256 amount,
         uint256 premium, // flash loan fee
         address, // initiator
-        bytes memory // params
+        bytes memory params
     ) public returns (bool) {
-        // console.log("in executeOperation:");
-        if (getFlashLoanMode()) {
-            // withdraw
-            console.log("in flashloan withdraw");
+        StrategyStorage storage strategyStorage = _getStrategyStorage();
+        if (msg.sender != address(strategyStorage.aavePool)) revert OnlyAavePool();
+        if (_getFlashLoanMode()) {
+            // pass, finally using repayWithATokens()
         } else {
-            StrategyStorage storage strategyStorage = _getStrategyStorage();
-            require(msg.sender == address(strategyStorage.aavePool), "only aave pool");
             uint256 balance = IERC20(asset).balanceOf(address(this));
             uint256 debtAmount = amount + premium;
-            // approve blance for deposit(), debtAmount for flashLoan's borrow+fee
+            // approve blance for deposit() & debtAmount for flashLoan's borrow+fee
             IERC20(asset).approve(address(strategyStorage.aavePool), balance + debtAmount);
-
             strategyStorage.aavePool.deposit(asset, balance, address(this), REFERAL_CODE);
-
             strategyStorage.aavePool.borrow(asset, debtAmount, INTEREST_RATE_MODE, REFERAL_CODE, address(this));
             return true;
         }
