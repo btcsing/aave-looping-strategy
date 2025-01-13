@@ -201,32 +201,12 @@ contract AaveLoopingStrategy is Vault {
         pool.flashLoanSimple(address(this), asset_, flashLoanAmount, "", REFERAL_CODE);
     }
 
-    /// @notice Flash loan for the strategy
-    /// @param pool The address of the Aave pool
-    /// @param asset_ The address of the asset
-    /// @param shares The amount of shares to flash loan
-    function flashLoanWithdraw(IPool pool, address asset_, uint256 shares) internal {
-        (,,,, uint256 ltv,) = pool.getUserAccountData(address(this));
-
-        StrategyStorage storage strategyStorage = _getStrategyStorage();
-
-        AavePair memory pair = strategyStorage.aavePairs[asset_];
-        uint256 aToken = pair.aToken.balanceOf(address(this));
-        uint256 aTokenAfterShares = aToken.mulDiv(shares, totalSupply(), Math.Rounding.Floor);
-        uint256 debt = pair.varDebtToken.balanceOf(address(this));
-        uint256 debtAfterShares = debt.mulDiv(shares, totalSupply(), Math.Rounding.Floor);
-        // true for withdraw
-        _setFlashLoanMode(true);
-        pool.flashLoanSimple(address(this), asset_, debtAfterShares, abi.encode(aTokenAfterShares), REFERAL_CODE);
-    }
-
     /// @notice Looping loan for the strategy
     /// @param pool The address of the Aave pool
     /// @param poolOracle The address of the Aave pool oracle
     /// @param asset_ The address of the asset
     /// @param assets The amount of assets to flash loan
     function loopingLoan(IPool pool, IAaveOracle poolOracle, address asset_, uint256 assets) internal {
-        StrategyStorage storage strategyStorage = _getStrategyStorage();
         IERC20(asset_).approve(address(pool), type(uint256).max);
         pool.deposit(asset_, assets, address(this), REFERAL_CODE);
 
@@ -334,8 +314,6 @@ contract AaveLoopingStrategy is Vault {
         if (caller != owner) {
             _spendAllowance(owner, caller, shares);
         }
-
-        uint256 vaultBalance = IERC20(asset_).balanceOf(address(this));
 
         StrategyStorage storage strategyStorage = _getStrategyStorage();
 
@@ -642,13 +620,12 @@ contract AaveLoopingStrategy is Vault {
     /// @param asset The address of the asset
     /// @param amount The amount of assets to flash loan
     /// @param premium The flash loan fee
-    /// @param params The flash loan params
     function executeOperation(
         address asset,
         uint256 amount,
         uint256 premium, // flash loan fee
         address, // initiator
-        bytes memory params
+        bytes memory
     ) public returns (bool) {
         StrategyStorage storage strategyStorage = _getStrategyStorage();
         if (msg.sender != address(strategyStorage.aavePool)) revert OnlyAavePool();
@@ -661,7 +638,7 @@ contract AaveLoopingStrategy is Vault {
             IERC20(asset).approve(address(strategyStorage.aavePool), balance + debtAmount);
             strategyStorage.aavePool.deposit(asset, balance, address(this), REFERAL_CODE);
             strategyStorage.aavePool.borrow(asset, debtAmount, INTEREST_RATE_MODE, REFERAL_CODE, address(this));
-            return true;
         }
+        return true;
     }
 }

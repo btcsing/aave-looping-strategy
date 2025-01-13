@@ -51,7 +51,6 @@ contract AaveLoopingStrategyWithdrawUnitTest is SetupAaveLoopingStrategy {
         vault.setFlashLoanEnabled(true);
         vm.stopPrank();
 
-        uint256 beforeBalance = weth.balanceOf(alice);
         vm.startPrank(alice);
         // deposit
         uint256 sharesMinted = vault.deposit(withdrawAmount, alice);
@@ -120,7 +119,6 @@ contract AaveLoopingStrategyWithdrawUnitTest is SetupAaveLoopingStrategy {
         vault.setFlashLoanEnabled(true);
         vm.stopPrank();
 
-        uint256 beforeBalance = weth.balanceOf(alice);
         vm.startPrank(alice);
         // deposit
         vault.deposit(withdrawAmount, alice);
