@@ -58,8 +58,14 @@ setFlashLoanEnabled(true);
 -   edge case: if user deposit value too low (vaule less than 1e-8 USD), the totalCollateralBase still be 0, user still can not borrow anything
     -   ex: if user deposit 0.00000000000001 ETH, 10^-14 * 3364e8 = 0.000000000000003364 < 1e-8 USD, so the totalCollateralBase still be 0, user can not borrow anything even though user want borrow 10^-16 ETH!
 
+
+## Troubleshooting
+
+
+### Contract Size
 -  contract size too large over 24kb, so we need to split it into 2 contracts, AaveLoopingStrategy and AaveLoopingLogic
-   - see as following, contract size around ~27kb ( > 24kb) using optimizer with 200 runs, see using `forge build --size`
+
+- see as following, contract size around ~27kb ( > 24kb) using optimizer with 200 runs, see using `forge build --size`
    
 
 | Contract    | Runtime (B) | Initcode (B) | Runtime Margin |
