@@ -130,4 +130,15 @@ contract AaveLoopingStrategyWithdrawUnitTest is SetupAaveLoopingStrategy {
         vault.withdraw(withdrawAmount, alice, alice);
         vm.stopPrank();
     }
+
+    function test_AaveLoopingLogic_linked_library() public {
+        address logicAddr = vault.getAaveLoopingLogic();
+        assertNotEq(logicAddr, address(0), "AaveLoopingLogic address should not be 0");
+        assertNotEq(logicAddr, address(vault), "AaveLoopingLogic address should not be the current contract");
+
+        // cannot call availableAssets() in AaveLoopingStrategy, function not exist, only exist in AaveLoopingLogic, following will get compile error
+        // vault.availableAssets(address(weth));
+        vm.expectRevert(bytes(""));
+        (bool success,) = logicAddr.call(abi.encodeWithSignature("availableAssets(address)", address(weth)));
+    }
 }

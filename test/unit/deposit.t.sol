@@ -8,6 +8,7 @@ import {MockERC20} from "lib/yieldnest-vault/test/unit/mocks/MockERC20.sol";
 
 import {SetupAaveLoopingStrategy} from "test/unit/helpers/SetupAaveLoopingStrategy.sol";
 import {IPool} from "lib/aave-v3-origin/src/contracts/interfaces/IPool.sol";
+import {AaveLoopingLogic} from "src/AaveLoopingLogic.sol";
 
 contract AaveLoopingStrategyDepositUnitTest is SetupAaveLoopingStrategy {
     function setUp() public {
@@ -62,7 +63,7 @@ contract AaveLoopingStrategyDepositUnitTest is SetupAaveLoopingStrategy {
 
         // Check that total assets
         // ltv = 9000 (90%) = 1/(1-0.9) = 10
-        uint256 flashLoanFee = vault.totalAssets() * 10 * vault.FLASH_LOAN_FEE() / 10000;
+        uint256 flashLoanFee = vault.totalAssets() * 10 * AaveLoopingLogic.FLASH_LOAN_FEE / 10000;
         assertGt(vault.totalAssets(), depositAmount - flashLoanFee, "Total assets is not correctly");
     }
 
@@ -90,7 +91,7 @@ contract AaveLoopingStrategyDepositUnitTest is SetupAaveLoopingStrategy {
 
         // Check that total assets
         // ltv = 9000 (90%) = 1/(1-0.9) = 10
-        uint256 flashLoanFee = vault.totalAssets() * 10 * vault.FLASH_LOAN_FEE() / 10000;
+        uint256 flashLoanFee = vault.totalAssets() * 10 * AaveLoopingLogic.FLASH_LOAN_FEE / 10000;
         assertGt(vault.totalAssets(), depositAmount - flashLoanFee, "Total assets is not correctly");
     }
 
