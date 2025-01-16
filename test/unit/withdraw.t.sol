@@ -8,6 +8,7 @@ import {MockERC20} from "lib/yieldnest-vault/test/unit/mocks/MockERC20.sol";
 
 import {SetupAaveLoopingStrategy} from "test/unit/helpers/SetupAaveLoopingStrategy.sol";
 import {IPool} from "lib/aave-v3-origin/src/contracts/interfaces/IPool.sol";
+import {MainnetContracts as MC} from "script/Contracts.sol";
 
 contract AaveLoopingStrategyWithdrawUnitTest is SetupAaveLoopingStrategy {
     function setUp() public {
@@ -21,6 +22,10 @@ contract AaveLoopingStrategyWithdrawUnitTest is SetupAaveLoopingStrategy {
         // Approve vault to spend Alice's tokens
         vm.prank(alice);
         weth.approve(address(vault), type(uint256).max);
+
+        // deal eth to MockUniswapV3Router
+        deal(MC.WETH, MC.UNISWAPV3_SWAP_ROUTER, 100_000 ether);
+        deal(MC.WEETH, MC.UNISWAPV3_SWAP_ROUTER, 100_000 ether);
     }
 
     function test_AaveLoopingStrategy_withdraw_sync_disable() public {
@@ -109,25 +114,31 @@ contract AaveLoopingStrategyWithdrawUnitTest is SetupAaveLoopingStrategy {
         vm.stopPrank();
     }
 
-    function test_AaveLoopingStrategy_withdraw_sync_revert_ExceededMaxWithdraw() public {
-        uint256 withdrawAmount = 1 ether;
+    function test_AaveLoopingStrategy_sync_withdraw_borrow_other_asset_success(uint256 withdrawAmount) public {
+        // function test_AaveLoopingStrategy_sync_withdraw_borrow_other_asset_success() public {
+        // uint256 withdrawAmount = 1 ether;
         withdrawAmount = bound(withdrawAmount, 1e8, 10_000 ether);
+
+        // at least cover the deposit & withdraw flash loan fee 0.05%, but 10x leverage, and swap fee, so using 2%
+        uint256 depositAmount = withdrawAmount * 10200 / 10000;
 
         vm.startPrank(ADMIN);
         vault.setSyncDeposit(true);
         vault.setSyncWithdraw(true);
         vault.setFlashLoanEnabled(true);
+        vault.addAsset(MC.WEETH, false);
+        vault.setBorrowAsset(address(MC.WEETH));
         vm.stopPrank();
 
         vm.startPrank(alice);
         // deposit
-        vault.deposit(withdrawAmount, alice);
+        vault.deposit(depositAmount, alice);
+
         // withdraw
-        // because after using flash loan, the balance need subtracted the flash loan fee
-        vm.expectRevert(
-            abi.encodeWithSelector(IVault.ExceededMaxWithdraw.selector, alice, withdrawAmount, vault.maxWithdraw(alice))
-        );
+        uint256 beforeBalance = weth.balanceOf(alice);
         vault.withdraw(withdrawAmount, alice, alice);
+        vm.assertGt(weth.balanceOf(alice), beforeBalance, "Alice withdraw did not receive the correct amount of token");
+        vm.assertGt(weth.balanceOf(alice), beforeBalance, "Alice withdraw did not receive the correct amount of token");
         vm.stopPrank();
     }
 
@@ -139,6 +150,6 @@ contract AaveLoopingStrategyWithdrawUnitTest is SetupAaveLoopingStrategy {
         // cannot call availableAssets() in AaveLoopingStrategy, function not exist, only exist in AaveLoopingLogic, following will get compile error
         // vault.availableAssets(address(weth));
         vm.expectRevert(bytes(""));
-        (bool success,) = logicAddr.call(abi.encodeWithSignature("availableAssets(address)", address(weth)));
+        logicAddr.call(abi.encodeWithSignature("availableAssets(address)", address(weth)));
     }
 }

@@ -27,4 +27,7 @@ library MainnetContracts {
 
     address public constant PROVIDER = address(123456789); // TODO: Update with deployed Provider
     address public constant BUFFER = address(987654321); // TODO: Update with deployed buffer
+
+    // Uniswap V3
+    address public constant UNISWAPV3_SWAP_ROUTER = 0xE59242787Dbdbf287B490eA49502589732f9CeA9;
 }

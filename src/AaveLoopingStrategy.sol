@@ -5,7 +5,6 @@ import {IERC20, Math, SafeERC20} from "lib/yieldnest-vault/src/Common.sol";
 import {Vault} from "lib/yieldnest-vault/src/Vault.sol";
 import {IPool} from "lib/aave-v3-origin/src/contracts/interfaces/IPool.sol";
 import {IPoolDataProvider} from "lib/aave-v3-origin/src/contracts/interfaces/IPoolDataProvider.sol";
-import {IAaveOracle} from "lib/aave-v3-origin/src/contracts/interfaces/IAaveOracle.sol";
 import {AaveLoopingLogic} from "./AaveLoopingLogic.sol";
 
 /**
@@ -49,6 +48,10 @@ contract AaveLoopingStrategy is Vault {
     /// @param enabled Whether the flash loan is enabled
     event SetFlashLoanEnabled(bool enabled);
 
+    /// @notice Emitted when the borrow asset is set
+    /// @param borrowAsset The address of the borrow asset
+    event SetBorrowAsset(address borrowAsset);
+
     /**
      * @notice Retrieves the strategy storage structure.
      * @return $ The strategy storage structure.
@@ -75,7 +78,6 @@ contract AaveLoopingStrategy is Vault {
         uint256 assetListLength = assetList.length;
 
         AaveLoopingLogic.StrategyStorage storage strategyStorage = _getStrategyStorage();
-
         for (uint256 i = 0; i < assetListLength; i++) {
             AaveLoopingLogic.AavePair memory pair = strategyStorage.aavePairs[assetList[i]];
             uint256 underlyingBalance = IERC20(assetList[i]).balanceOf(address(this));
@@ -83,9 +85,15 @@ contract AaveLoopingStrategy is Vault {
             //  see: https://aave.com/docs/developers/smart-contracts/tokenization#undefined-atoken
             uint256 aBalance = pair.aToken.balanceOf(address(this));
             uint256 debtBalance = pair.varDebtToken.balanceOf(address(this));
-            uint256 balance = underlyingBalance + aBalance - debtBalance;
-            if (balance == 0) continue;
-            totalBaseBalance += _convertAssetToBase(assetList[i], balance);
+
+            // avoid underflow, balance = underlyingBalance + aBalance - debtBalance , if debtBalance > balance, then balance will be underflow
+            uint256 balance = underlyingBalance + aBalance;
+            if (balance > 0) {
+                totalBaseBalance += _convertAssetToBase(assetList[i], balance);
+            }
+            if (debtBalance > 0) {
+                totalBaseBalance -= _convertAssetToBase(assetList[i], debtBalance);
+            }
         }
     }
 
@@ -97,7 +105,7 @@ contract AaveLoopingStrategy is Vault {
      */
     function _addAsset(address asset_, uint8 decimals_, bool active_) internal override {
         super._addAsset(asset_, decimals_, active_);
-        AaveLoopingLogic.addAsset(asset_, decimals_);
+        AaveLoopingLogic.addAsset(asset_);
     }
 
     /**
@@ -172,10 +180,12 @@ contract AaveLoopingStrategy is Vault {
             revert Paused();
         }
         uint256 maxAssets = maxWithdrawAsset(asset_, owner);
+
         if (assets > maxAssets) {
             revert ExceededMaxWithdraw(owner, assets, maxAssets);
         }
         (shares,) = _convertToShares(asset_, assets, Math.Rounding.Ceil);
+
         _withdrawAsset(asset_, _msgSender(), receiver, owner, assets, shares);
     }
 
@@ -378,6 +388,9 @@ contract AaveLoopingStrategy is Vault {
     function setSyncDeposit(bool syncDeposit) external onlyRole(DEPOSIT_MANAGER_ROLE) {
         AaveLoopingLogic.StrategyStorage storage strategyStorage = _getStrategyStorage();
         strategyStorage.syncDeposit = syncDeposit;
+        if (strategyStorage.borrowAsset == address(0)) {
+            strategyStorage.borrowAsset = asset();
+        }
 
         emit SetSyncDeposit(syncDeposit);
     }
@@ -421,6 +434,14 @@ contract AaveLoopingStrategy is Vault {
         emit SetFlashLoanEnabled(enabled);
     }
 
+    /// @notice Set the borrow asset
+    /// @param borrowAsset The address of the borrow asset
+    function setBorrowAsset(address borrowAsset) external onlyRole(AAVE_DEPENDENCY_MANAGER_ROLE) {
+        AaveLoopingLogic.StrategyStorage storage strategyStorage = _getStrategyStorage();
+        strategyStorage.borrowAsset = borrowAsset;
+        emit SetBorrowAsset(borrowAsset);
+    }
+
     /**
      * @notice Returns the current sync deposit flag.
      * @return syncDeposit The sync deposit flag.
@@ -458,6 +479,13 @@ contract AaveLoopingStrategy is Vault {
         return address(strategyStorage.aaveOracle);
     }
 
+    /// @notice Returns the current borrow asset
+    /// @return borrowAsset The address of the borrow asset
+    function getBorrowAsset() public view returns (address) {
+        AaveLoopingLogic.StrategyStorage storage strategyStorage = _getStrategyStorage();
+        return strategyStorage.borrowAsset;
+    }
+
     /**
      * @notice Gets the address of the AaveLoopingLogic library
      * @return The address of the AaveLoopingLogic library
@@ -470,13 +498,14 @@ contract AaveLoopingStrategy is Vault {
     /// @param asset The address of the asset
     /// @param amount The amount of assets to flash loan
     /// @param premium The flash loan fee
+    /// @param params The parameters for the flash loan callback
     function executeOperation(
         address asset,
         uint256 amount,
         uint256 premium, // flash loan fee
         address, // initiator
-        bytes memory
+        bytes memory params
     ) public returns (bool) {
-        return AaveLoopingLogic.aaveFlashLoanCallback(asset, amount, premium);
+        return AaveLoopingLogic.aaveFlashLoanCallback(asset, amount, premium, params);
     }
 }

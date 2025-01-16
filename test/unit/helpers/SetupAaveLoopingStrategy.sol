@@ -51,7 +51,7 @@ contract SetupAaveLoopingStrategy is Test, EtchUtils, MainnetActors {
         aavePool = setupAAVE.getPool();
         aavePoolDataProvider = setupAAVE.getPoolDataProvider();
         aaveOracle = setupAAVE.getOracle();
-        provider = new ETHRateProvider();
+        provider = new ETHRateProvider(aaveOracle);
         AaveLoopingStrategy implementation = new AaveLoopingStrategy();
         // Deploy the proxy
         bytes memory initData =
