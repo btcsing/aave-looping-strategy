@@ -58,6 +58,25 @@ setFlashLoanEnabled(true);
 -   edge case: if user deposit value too low (vaule less than 1e-8 USD), the totalCollateralBase still be 0, user still can not borrow anything
     -   ex: if user deposit 0.00000000000001 ETH, 10^-14 * 3364e8 = 0.000000000000003364 < 1e-8 USD, so the totalCollateralBase still be 0, user can not borrow anything even though user want borrow 10^-16 ETH!
 
+-  interest rate can using [getReserveData](https://etherscan.io/address/0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2#readProxyContract)() to get it
+   - like  1061412934717478905359655072 is 1061412934717478905359655072 / 1e27 ~= 1.06 %
+   ex:
+   ```
+    DataTypes.ReserveDataLegacy memory reserveData = pool.getReserveData(asset_);
+    uint256 borrowRate = reserveData.currentVariableBorrowRate;
+    uint256 supplyRate = reserveData.currentLiquidityRate;
+   ```
+
+
+## Architecture
+
+* architecture of this repo
+![architecture](./pics/aave-arch.png)
+
+* strategies flow
+![strategies](./pics/aave-strategies.png)
+
+* Different asset strategy show in branch [borrow-low-apy-supply-high-apy](https://github.com/btcsing/aave-looping-strategy/tree/borrow-low-apy-supply-high-apy)
 
 ## Troubleshooting
 
