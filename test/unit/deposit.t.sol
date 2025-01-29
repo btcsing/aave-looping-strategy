@@ -8,7 +8,11 @@ import {MockERC20} from "lib/yieldnest-vault/test/unit/mocks/MockERC20.sol";
 
 import {SetupAaveLoopingStrategy} from "test/unit/helpers/SetupAaveLoopingStrategy.sol";
 import {IPool} from "lib/aave-v3-origin/src/contracts/interfaces/IPool.sol";
+import {IPoolDataProvider} from "lib/aave-v3-origin/src/contracts/interfaces/IPoolDataProvider.sol";
 import {AaveLoopingLogic} from "src/AaveLoopingLogic.sol";
+
+import {MainnetContracts as MC} from "script/Contracts.sol";
+import {DataTypes} from "lib/aave-v3-origin/src/contracts/protocol/libraries/types/DataTypes.sol";
 
 contract AaveLoopingStrategyDepositUnitTest is SetupAaveLoopingStrategy {
     function setUp() public {
@@ -22,6 +26,10 @@ contract AaveLoopingStrategyDepositUnitTest is SetupAaveLoopingStrategy {
         // Approve vault to spend Alice's tokens
         vm.prank(alice);
         weth.approve(address(vault), type(uint256).max);
+
+        // deal eth to MockUniswapV3Router
+        deal(MC.WETH, MC.UNISWAPV3_SWAP_ROUTER, 100_000 ether);
+        deal(MC.WEETH, MC.UNISWAPV3_SWAP_ROUTER, 100_000 ether);
     }
 
     function test_AaveLoopingStrategy_deposit_success(uint256 depositAmount) public {
@@ -68,6 +76,8 @@ contract AaveLoopingStrategyDepositUnitTest is SetupAaveLoopingStrategy {
     }
 
     function test_AaveLoopingStrategy_flashLoan(uint256 depositAmount) public {
+        // function test_AaveLoopingStrategy_flashLoan() public {
+        // uint256 depositAmount = 1000 ether;
         // input value at least 1e-8 USD, 1e8 wei eth >= 1e-8 USD if eth price >= 100 USD (1e-10 eth *100 USD)
         depositAmount = uint256(bound(depositAmount, 1e8, 10_000 ether));
 
@@ -93,6 +103,49 @@ contract AaveLoopingStrategyDepositUnitTest is SetupAaveLoopingStrategy {
         // ltv = 9000 (90%) = 1/(1-0.9) = 10
         uint256 flashLoanFee = vault.totalAssets() * 10 * AaveLoopingLogic.FLASH_LOAN_FEE / 10000;
         assertGt(vault.totalAssets(), depositAmount - flashLoanFee, "Total assets is not correctly");
+    }
+
+    function test_AaveLoopingStrategy_flashLoan_borrow_other_asset(uint256 depositAmount) public {
+        // function test_AaveLoopingStrategy_flashLoan_borrow_other_asset() public {
+        // uint256 depositAmount = 1000 ether;
+        // input value at least 1e-8 USD, 1e8 wei eth >= 1e-8 USD if eth price >= 100 USD (1e-10 eth *100 USD)
+        depositAmount = uint256(bound(depositAmount, 1e8, 10_000 ether));
+
+        vm.startPrank(ADMIN);
+        vault.setSyncDeposit(true);
+        vault.setFlashLoanEnabled(true);
+        vault.addAsset(MC.WEETH, false);
+        vault.setBorrowAsset(address(MC.WEETH));
+        vm.stopPrank();
+
+        vm.prank(alice);
+        uint256 sharesMinted = vault.deposit(depositAmount, alice);
+
+        (,,,,, uint256 healthFactor) = IPool(aavePool).getUserAccountData(address(vault));
+
+        // healthFactor is scaled by 1e18
+        assertGe(healthFactor, 1.03e18, "Health factor too low");
+        // Check Vault should all used for deposit
+        assertEq(weth.balanceOf(address(vault)), 0, "weth balance should be 0");
+
+        // Check that Alice received the correct amount of shares
+        assertEq(vault.balanceOf(alice), sharesMinted, "Alice did not receive the correct amount of shares");
+
+        // Check that borrow asset is correct
+        IPoolDataProvider poolDataProvider = IPoolDataProvider(setupAAVE.getPoolDataProvider());
+        (address aToken,, address varDebtToken) = poolDataProvider.getReserveTokensAddresses(MC.WEETH);
+        assertEq(vault.getBorrowAsset(), address(MC.WEETH), "Borrow asset is not correctly");
+        assertEq(IERC20(aToken).balanceOf(address(vault)), 0, "weETH aToken balance should be 0");
+        assertGt(
+            IERC20(varDebtToken).balanceOf(address(vault)), 0, "weETH varDebtToken balance should be greater than 0"
+        );
+
+        // Check that weETH is correct
+        (address aETHToken, address varDebtETHToken) = vault.getPair(MC.WETH);
+        assertGt(IERC20(aETHToken).balanceOf(address(vault)), 0, "wETH aToken balance should be 0");
+        assertEq(
+            IERC20(varDebtETHToken).balanceOf(address(vault)), 0, "wETH varDebtToken balance should be greater than 0"
+        );
     }
 
     function test_AaveLoopingStrategy_interest_accrued() public {

@@ -8,6 +8,7 @@ import {MainnetContracts} from "script/Contracts.sol";
 import {MockSTETH} from "lib/yieldnest-vault/test/unit/mocks/MockST_ETH.sol";
 import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {MockERC20} from "lib/forge-std/src/mocks/MockERC20.sol";
+import {MockUniswapV3Router} from "../mocks/MockUniV3SwapRouter.sol";
 import {SetupAAVEPool} from "./aave/SetupAAVEPool.sol";
 
 contract EtchUtils is Test {
@@ -22,6 +23,7 @@ contract EtchUtils is Test {
         // mock AAVE pool and set to var pool
         mockAAVEPool();
         // mockProvider();
+        mockUniswapV3Router();
     }
 
     function mockWETH9() public {
@@ -64,4 +66,10 @@ contract EtchUtils is Test {
     //     bytes memory code = address(provider).code;
     //     vm.etch(MainnetContracts.PROVIDER, code);
     // }
+
+    function mockUniswapV3Router() public {
+        MockUniswapV3Router router = new MockUniswapV3Router();
+        bytes memory code = address(router).code;
+        vm.etch(MainnetContracts.UNISWAPV3_SWAP_ROUTER, code);
+    }
 }
